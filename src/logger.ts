@@ -68,7 +68,10 @@ export class Logger {
   private getTimestamp(): string {
     if (!this.config.showTimestamps) return "";
     const now = new Date();
-    return `[${now.toISOString().split("T")[1].split(".")[0]}] `;
+    const timeString = now.toISOString().split("T")[1];
+    if (!timeString) return "";
+    const timePart = timeString.split(".")[0];
+    return `[${timePart}] `;
   }
 
   private getColorCode(level: keyof LogLevel): string {
@@ -157,7 +160,7 @@ export class Logger {
       label,
       percentage: 0,
     };
-    this.updateProgress();
+    this.updateProgress(0);
   }
 
   public updateProgress(current: number): void {
@@ -167,10 +170,10 @@ export class Logger {
     this.currentProgress.percentage = Math.round(
       (current / this.currentProgress.total) * 100
     );
-    this.updateProgress();
+    this.renderProgress();
   }
 
-  public updateProgress(): void {
+  private renderProgress(): void {
     if (!this.currentProgress || !this.config.showProgress) return;
 
     const { current, total, label, percentage } = this.currentProgress;
