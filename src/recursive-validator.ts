@@ -9,6 +9,7 @@ import type {
   OpenAPIVersion,
   OpenAPISpec,
 } from "./types.js";
+import { log } from "./logger.js";
 
 export interface RecursiveValidationResult extends ValidationResult {
   partialValidations: Array<{
@@ -45,6 +46,8 @@ export const validateRecursively = async (
     options.maxRefDepth || 10
   );
 
+  log.info(`🔗 Following ${resolvedRefs.length} references...`);
+
   // Validate each resolved reference
   const partialValidations: Array<{
     path: string;
@@ -54,8 +57,12 @@ export const validateRecursively = async (
 
   let validDocuments = rootValidation.valid ? 1 : 0;
 
-  for (const ref of resolvedRefs) {
+  for (let i = 0; i < resolvedRefs.length; i++) {
+    const ref = resolvedRefs[i];
+    if (!ref) continue;
+
     if (ref.isCircular) {
+      log.info(`🔄 Circular reference: ${ref.path}`);
       partialValidations.push({
         path: ref.path,
         result: {
@@ -67,7 +74,7 @@ export const validateRecursively = async (
             },
           ],
           warnings: [],
-          spec: null,
+          spec: {} as OpenAPISpec,
           version: ref.version || "3.0",
         },
         isCircular: true,
@@ -97,6 +104,11 @@ export const validateRecursively = async (
 
     if (partialResult.valid) {
       validDocuments++;
+      log.info(`✅ Reference: ${ref.path}`);
+    } else {
+      log.info(
+        `❌ Reference: ${ref.path} (${partialResult.errors.length} errors)`
+      );
     }
   }
 
@@ -109,7 +121,7 @@ export const validateRecursively = async (
     allWarnings.push(...partial.result.warnings);
   }
 
-  return {
+  const result = {
     valid:
       rootValidation.valid && partialValidations.every((p) => p.result.valid),
     errors: allErrors,
@@ -121,6 +133,8 @@ export const validateRecursively = async (
     totalDocuments: 1 + partialValidations.length,
     validDocuments,
   };
+
+  return result;
 };
 
 /**
@@ -130,13 +144,37 @@ export const validateMultipleRecursively = async (
   sources: string[],
   options: ValidationOptions = {}
 ): Promise<RecursiveValidationResult[]> => {
+  log.startOperation("Multiple recursive validation");
+  log.validationStep(
+    "Starting batch validation",
+    `${sources.length} specifications`
+  );
+
   const results: RecursiveValidationResult[] = [];
 
-  for (const source of sources) {
+  log.startProgress(sources.length, "Validating specifications");
+
+  for (let i = 0; i < sources.length; i++) {
+    const source = sources[i];
+    if (!source) continue;
+
+    log.updateProgress(i);
+    log.fileOperation(
+      "Processing specification",
+      source,
+      `${i + 1}/${sources.length}`
+    );
+
     try {
       const result = await validateRecursively(source, options);
       results.push(result);
+      log.validationStep("Specification validated", `Valid: ${result.valid}`);
     } catch (error) {
+      log.error("Specification validation failed", {
+        source,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+
       // Create error result for failed parsing
       const errorResult: RecursiveValidationResult = {
         valid: false,
@@ -149,7 +187,7 @@ export const validateMultipleRecursively = async (
           },
         ],
         warnings: [],
-        spec: null,
+        spec: {} as OpenAPISpec,
         version: "3.0",
         partialValidations: [],
         circularReferences: [],
@@ -159,6 +197,16 @@ export const validateMultipleRecursively = async (
       results.push(errorResult);
     }
   }
+
+  log.endProgress();
+  log.endOperation("Multiple recursive validation", true);
+
+  const validCount = results.filter((r) => r.valid).length;
+  const invalidCount = results.length - validCount;
+  log.validationStep(
+    "Batch validation completed",
+    `Valid: ${validCount}, Invalid: ${invalidCount}`
+  );
 
   return results;
 };
@@ -173,10 +221,17 @@ export const analyzeReferences = async (
   circularReferences: string[];
   totalReferences: number;
 }> => {
+  log.startOperation("Analyzing references");
+  log.fileOperation("Analyzing references", source);
+
   const parsed = await parseOpenAPISpec(source);
+  log.validationStep("Parsing completed for reference analysis");
+
   const references = findReferences(parsed.spec);
+  log.validationStep("References found", `${references.length} total`);
 
   // Check for circular references by analyzing reference paths
+  log.validationStep("Analyzing circular references");
   const circularReferences: string[] = [];
   const referenceMap = new Map<string, string[]>();
 
@@ -192,13 +247,26 @@ export const analyzeReferences = async (
   for (const [refValue, paths] of referenceMap) {
     if (paths.length > 1) {
       // This is a potential circular reference
+      log.referenceStep(
+        "Circular reference detected",
+        refValue,
+        `${paths.length} occurrences`
+      );
       circularReferences.push(refValue);
     }
   }
 
-  return {
+  const result = {
     references,
     circularReferences,
     totalReferences: references.length,
   };
+
+  log.endOperation("Analyzing references", true);
+  log.validationStep(
+    "Reference analysis completed",
+    `Total: ${result.totalReferences}, Circular: ${result.circularReferences.length}`
+  );
+
+  return result;
 };

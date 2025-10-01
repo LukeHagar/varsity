@@ -1,19 +1,32 @@
 {
   "name": "varsity",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Comprehensive OpenAPI parsing and validation library",
-  "module": "index.ts",
   "type": "module",
-  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./index.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli.js",
+      "types": "./src/cli.ts"
+    }
+  },
   "bin": {
-    "varsity": "./src/cli.ts"
+    "varsity": "dist/cli.js"
   },
   "scripts": {
     "start": "bun run src/cli.ts",
     "dev": "bun run --watch src/cli.ts",
     "test": "bun test",
-    "build": "bun build index.ts --outdir dist --target bun",
-    "lint": "bun run --bun tsc --noEmit"
+    "build": "bun build index.ts --outdir dist --target node --format esm",
+    "build:cli": "bun build src/cli.ts --outdir dist --target node --format esm --outfile varsity",
+    "build:all": "bun run build && bun run build:cli",
+    "lint": "bun run --bun tsc --noEmit",
+    "prepublishOnly": "bun run build:all"
   },
   "keywords": [
     "openapi",
@@ -21,12 +34,34 @@
     "validation",
     "parser",
     "api",
-    "specification"
+    "specification",
+    "cli",
+    "typescript",
+    "bun",
+    "json-schema",
+    "api-validation",
+    "openapi-validator"
   ],
-  "author": "",
+  "author": "Luke",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luke/varsity.git"
+  },
+  "homepage": "https://github.com/luke/varsity#readme",
+  "bugs": {
+    "url": "https://github.com/luke/varsity/issues"
+  },
+  "files": [
+    "index.ts",
+    "src/",
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/js-yaml": "^4.0.9"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -36,6 +71,7 @@
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "commander": "^14.0.1",
+    "js-yaml": "^4.1.0",
     "oas-types": "^1.0.6"
   }
 }

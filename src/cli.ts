@@ -5,12 +5,13 @@ import {
   parse,
   generateValidationReport,
   saveValidationReport,
-  validateMultiple,
   validateWithReferences,
   validateMultipleWithReferences,
   analyzeDocumentReferences,
+  generateSpecificationSummary,
   getSupportedVersions,
   createVarsity,
+  log,
 } from "./varsity.js";
 import type { ValidationOptions, ReportOptions } from "./types.js";
 
@@ -18,14 +19,19 @@ const program = new Command();
 
 program
   .name("varsity")
-  .description("Comprehensive OpenAPI parsing and validation library")
+  .description(
+    "Comprehensive OpenAPI parsing and validation library (supports JSON and YAML)"
+  )
   .version("1.0.0");
 
 // Validate command
 program
   .command("validate")
-  .description("Validate an OpenAPI specification")
-  .argument("<source>", "Path or URL to OpenAPI specification")
+  .description("Validate one or more OpenAPI specifications")
+  .argument(
+    "<sources...>",
+    "Path(s) or URL(s) to OpenAPI specification(s) (JSON or YAML)"
+  )
   .option("-s, --strict", "Enable strict validation mode")
   .option("-e, --examples", "Validate examples in the specification")
   .option("-r, --references", "Validate all references")
@@ -36,7 +42,14 @@ program
     "10"
   )
   .option("-v, --verbose", "Show detailed output")
-  .action(async (source: string, options: any) => {
+  .option("-j, --json", "Output as JSON")
+  .option("--no-progress", "Disable progress indicators")
+  .option("--no-colors", "Disable colored output")
+  .action(async (sources: string[], options: any) => {
+    // Configure logger based on options
+    log.setVerbose(options.verbose);
+    log.setShowProgress(!options.noProgress);
+    log.setUseColors(!options.noColors);
     try {
       const validationOptions: ValidationOptions = {
         strict: options.strict,
@@ -46,74 +59,201 @@ program
         maxRefDepth: parseInt(options.maxDepth) || 10,
       };
 
-      let result;
-      if (options.recursive) {
-        result = await validateWithReferences(source, validationOptions);
-
-        if (result.valid) {
-          console.log("✅ Specification and all references are valid");
-          if (options.verbose) {
-            console.log(`Version: ${result.version}`);
-            console.log(`Total documents: ${result.totalDocuments}`);
-            console.log(`Valid documents: ${result.validDocuments}`);
-            console.log(
-              `Circular references: ${result.circularReferences.length}`
-            );
-            console.log(`Warnings: ${result.warnings.length}`);
-          }
-        } else {
-          console.log("❌ Specification or references are invalid");
-          console.log(`Errors: ${result.errors.length}`);
-          console.log(`Total documents: ${result.totalDocuments}`);
-          console.log(`Valid documents: ${result.validDocuments}`);
-
-          if (result.circularReferences.length > 0) {
-            console.log(
-              `Circular references: ${result.circularReferences.length}`
-            );
-            for (const circular of result.circularReferences) {
-              console.log(`  • ${circular}`);
-            }
-          }
-
-          for (const error of result.errors) {
-            console.log(`  • ${error.path}: ${error.message}`);
-          }
-
-          if (options.verbose && result.warnings.length > 0) {
-            console.log(`Warnings: ${result.warnings.length}`);
-            for (const warning of result.warnings) {
-              console.log(`  • ${warning.path}: ${warning.message}`);
-            }
-          }
-
+      // Handle single vs multiple sources
+      if (sources.length === 1) {
+        const source = sources[0];
+        if (!source) {
+          console.log("❌ No source provided");
           process.exit(1);
         }
-      } else {
-        result = await validate(source, validationOptions);
+        let result;
 
-        if (result.valid) {
-          console.log("✅ Specification is valid");
-          if (options.verbose) {
-            console.log(`Version: ${result.version}`);
-            console.log(`Warnings: ${result.warnings.length}`);
+        if (options.recursive) {
+          result = await validateWithReferences(source, validationOptions);
+
+          if (result.valid) {
+            console.log("✅ Specification and all references are valid");
+
+            // Show summary if not in JSON mode
+            if (!options.json) {
+              try {
+                const { summary } = await generateSpecificationSummary(
+                  source,
+                  validationOptions
+                );
+                console.log("\n📊 Summary:");
+                console.log(`  Version: ${summary.version}`);
+                console.log(`  Paths: ${summary.paths}`);
+                console.log(`  Endpoints: ${summary.endpoints}`);
+                console.log(`  Components: ${summary.components}`);
+                console.log(`  Schemas: ${summary.schemas}`);
+                console.log(`  Total Documents: ${result.totalDocuments}`);
+                console.log(`  Valid Documents: ${result.validDocuments}`);
+                console.log(
+                  `  References: ${summary.referenceAnalysis.totalReferences}`
+                );
+                console.log(
+                  `  Circular References: ${result.circularReferences.length}`
+                );
+                console.log(`  Errors: ${result.errors.length}`);
+                console.log(`  Warnings: ${result.warnings.length}`);
+              } catch (error) {
+                // Fallback to basic info if summary generation fails
+                console.log(`Version: ${result.version}`);
+                console.log(`Total documents: ${result.totalDocuments}`);
+                console.log(`Valid documents: ${result.validDocuments}`);
+                console.log(
+                  `Circular references: ${result.circularReferences.length}`
+                );
+                console.log(`Warnings: ${result.warnings.length}`);
+              }
+            } else if (options.verbose) {
+              console.log(`Version: ${result.version}`);
+              console.log(`Total documents: ${result.totalDocuments}`);
+              console.log(`Valid documents: ${result.validDocuments}`);
+              console.log(
+                `Circular references: ${result.circularReferences.length}`
+              );
+              console.log(`Warnings: ${result.warnings.length}`);
+            }
+          } else {
+            console.log("❌ Specification or references are invalid");
+            console.log(`Errors: ${result.errors.length}`);
+            console.log(`Total documents: ${result.totalDocuments}`);
+            console.log(`Valid documents: ${result.validDocuments}`);
+
+            if (result.circularReferences.length > 0) {
+              console.log(
+                `Circular references: ${result.circularReferences.length}`
+              );
+              for (const circular of result.circularReferences) {
+                console.log(`  • ${circular}`);
+              }
+            }
+
+            for (const error of result.errors) {
+              console.log(`  • ${error.path}: ${error.message}`);
+            }
+
+            if (options.verbose && result.warnings.length > 0) {
+              console.log(`Warnings: ${result.warnings.length}`);
+              for (const warning of result.warnings) {
+                console.log(`  • ${warning.path}: ${warning.message}`);
+              }
+            }
+
+            process.exit(1);
           }
         } else {
-          console.log("❌ Specification is invalid");
-          console.log(`Errors: ${result.errors.length}`);
+          result = await validate([source], validationOptions);
 
-          for (const error of result.errors) {
-            console.log(`  • ${error.path}: ${error.message}`);
+          // Handle both single result and array of results
+          const validationResult = Array.isArray(result) ? result[0] : result;
+
+          if (!validationResult) {
+            console.log("❌ No validation result received");
+            process.exit(1);
           }
 
-          if (options.verbose && result.warnings.length > 0) {
-            console.log(`Warnings: ${result.warnings.length}`);
-            for (const warning of result.warnings) {
-              console.log(`  • ${warning.path}: ${warning.message}`);
+          if (validationResult.valid) {
+            console.log("✅ Specification is valid");
+
+            // Show summary if not in JSON mode
+            if (!options.json) {
+              try {
+                const { summary } = await generateSpecificationSummary(
+                  source,
+                  validationOptions
+                );
+                console.log("\n📊 Summary:");
+                console.log(`  Version: ${summary.version}`);
+                console.log(`  Paths: ${summary.paths}`);
+                console.log(`  Endpoints: ${summary.endpoints}`);
+                console.log(`  Components: ${summary.components}`);
+                console.log(`  Schemas: ${summary.schemas}`);
+                console.log(
+                  `  References: ${summary.referenceAnalysis.totalReferences}`
+                );
+                console.log(
+                  `  Circular References: ${summary.referenceAnalysis.circularReferences}`
+                );
+                console.log(`  Errors: ${summary.validationResults.errors}`);
+                console.log(
+                  `  Warnings: ${summary.validationResults.warnings}`
+                );
+              } catch (error) {
+                // Fallback to basic info if summary generation fails
+                console.log(`Version: ${validationResult.version}`);
+                console.log(`Warnings: ${validationResult.warnings.length}`);
+              }
+            } else if (options.verbose) {
+              console.log(`Version: ${validationResult.version}`);
+              console.log(`Warnings: ${validationResult.warnings.length}`);
+            }
+          } else {
+            console.log("❌ Specification is invalid");
+            console.log(`Errors: ${validationResult.errors.length}`);
+
+            for (const error of validationResult.errors) {
+              console.log(`  • ${error.path}: ${error.message}`);
+            }
+
+            if (options.verbose && validationResult.warnings.length > 0) {
+              console.log(`Warnings: ${validationResult.warnings.length}`);
+              for (const warning of validationResult.warnings) {
+                console.log(`  • ${warning.path}: ${warning.message}`);
+              }
+            }
+
+            process.exit(1);
+          }
+        }
+      } else {
+        // Multiple sources - use batch validation logic
+        const results = await validateMultipleWithReferences(
+          sources,
+          validationOptions
+        );
+
+        if (options.json) {
+          console.log(JSON.stringify(results, null, 2));
+        } else {
+          console.log("📋 Validation Results");
+          console.log("=".repeat(50));
+
+          let validCount = 0;
+          let errorCount = 0;
+
+          for (let i = 0; i < sources.length; i++) {
+            const source = sources[i];
+            const result = results[i];
+
+            console.log(`\n${i + 1}. ${source}`);
+            if (result && result.valid) {
+              console.log("  ✅ Valid");
+              if (options.verbose) {
+                console.log(`  Version: ${result.version}`);
+                console.log(`  Warnings: ${result.warnings.length}`);
+              }
+              validCount++;
+            } else {
+              console.log("  ❌ Invalid");
+              console.log(`  Errors: ${result?.errors.length || 0}`);
+              if (options.verbose && result?.errors) {
+                for (const error of result.errors) {
+                  console.log(`    • ${error.path}: ${error.message}`);
+                }
+              }
+              errorCount++;
             }
           }
 
-          process.exit(1);
+          console.log("\n" + "=".repeat(50));
+          console.log(`Summary: ${validCount} valid, ${errorCount} invalid`);
+
+          if (errorCount > 0) {
+            process.exit(1);
+          }
         }
       }
     } catch (error) {
@@ -129,9 +269,15 @@ program
 program
   .command("parse")
   .description("Parse an OpenAPI specification without validation")
-  .argument("<source>", "Path or URL to OpenAPI specification")
+  .argument("<source>", "Path or URL to OpenAPI specification (JSON or YAML)")
   .option("-j, --json", "Output as JSON")
+  .option("--no-progress", "Disable progress indicators")
+  .option("--no-colors", "Disable colored output")
   .action(async (source: string, options: any) => {
+    // Configure logger based on options
+    log.setVerbose(options.verbose);
+    log.setShowProgress(!options.noProgress);
+    log.setUseColors(!options.noColors);
     try {
       const parsed = await parse(source);
 
@@ -160,7 +306,7 @@ program
 program
   .command("report")
   .description("Generate a validation report")
-  .argument("<source>", "Path or URL to OpenAPI specification")
+  .argument("<source>", "Path or URL to OpenAPI specification (JSON or YAML)")
   .option(
     "-f, --format <format>",
     "Report format (json, yaml, html, markdown)",
@@ -207,66 +353,11 @@ program
     }
   });
 
-// Batch command
-program
-  .command("batch")
-  .description("Validate multiple OpenAPI specifications")
-  .argument("<sources...>", "Paths or URLs to OpenAPI specifications")
-  .option("-s, --strict", "Enable strict validation mode")
-  .option("-e, --examples", "Validate examples in the specification")
-  .option("-r, --references", "Validate all references")
-  .option("-j, --json", "Output as JSON")
-  .action(async (sources: string[], options: any) => {
-    try {
-      const validationOptions: ValidationOptions = {
-        strict: options.strict,
-        validateExamples: options.examples,
-        validateReferences: options.references,
-      };
-
-      const results = await validateMultiple(sources, validationOptions);
-
-      if (options.json) {
-        console.log(JSON.stringify(results, null, 2));
-      } else {
-        console.log("📋 Batch Validation Results");
-        console.log("=".repeat(50));
-
-        let validCount = 0;
-        let errorCount = 0;
-
-        for (let i = 0; i < sources.length; i++) {
-          const source = sources[i];
-          const result = results[i];
-
-          console.log(`\n${i + 1}. ${source}`);
-          if (result && result.valid) {
-            console.log("  ✅ Valid");
-            validCount++;
-          } else {
-            console.log("  ❌ Invalid");
-            console.log(`  Errors: ${result?.errors.length || 0}`);
-            errorCount++;
-          }
-        }
-
-        console.log("\n" + "=".repeat(50));
-        console.log(`Summary: ${validCount} valid, ${errorCount} invalid`);
-      }
-    } catch (error) {
-      console.error(
-        "❌ Batch validation failed:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
-      process.exit(1);
-    }
-  });
-
 // Analyze command
 program
   .command("analyze")
   .description("Analyze references in an OpenAPI specification")
-  .argument("<source>", "Path or URL to OpenAPI specification")
+  .argument("<source>", "Path or URL to OpenAPI specification (JSON or YAML)")
   .option("-j, --json", "Output as JSON")
   .action(async (source: string, options: any) => {
     try {
@@ -305,6 +396,65 @@ program
     }
   });
 
+// Summary command
+program
+  .command("summary")
+  .description("Generate a comprehensive summary of an OpenAPI specification")
+  .argument("<source>", "Path or URL to OpenAPI specification (JSON or YAML)")
+  .option("-j, --json", "Output as JSON")
+  .option("-d, --detailed", "Show detailed summary")
+  .option("-s, --strict", "Enable strict validation mode")
+  .option("-e, --examples", "Validate examples in the specification")
+  .option("-r, --references", "Validate all references")
+  .option("--no-progress", "Disable progress indicators")
+  .option("--no-colors", "Disable colored output")
+  .action(async (source: string, options: any) => {
+    // Configure logger based on options
+    log.setVerbose(options.verbose);
+    log.setShowProgress(!options.noProgress);
+    log.setUseColors(!options.noColors);
+
+    try {
+      const validationOptions: ValidationOptions = {
+        strict: options.strict,
+        validateExamples: options.examples,
+        validateReferences: options.references,
+      };
+
+      const { summary, detailedSummary, jsonSummary } =
+        await generateSpecificationSummary(source, validationOptions);
+
+      if (options.json) {
+        console.log(jsonSummary);
+      } else if (options.detailed) {
+        console.log(detailedSummary);
+      } else {
+        console.log("📊 OpenAPI Specification Summary");
+        console.log("=".repeat(50));
+        console.log(`Version: ${summary.version}`);
+        console.log(`Title: ${summary.title || "N/A"}`);
+        console.log(`Paths: ${summary.paths}`);
+        console.log(`Endpoints: ${summary.endpoints}`);
+        console.log(`Components: ${summary.components}`);
+        console.log(`Schemas: ${summary.schemas}`);
+        console.log(`Valid: ${summary.validationResults.valid ? "Yes" : "No"}`);
+        if (summary.validationResults.errors > 0) {
+          console.log(`Errors: ${summary.validationResults.errors}`);
+        }
+        if (summary.validationResults.warnings > 0) {
+          console.log(`Warnings: ${summary.validationResults.warnings}`);
+        }
+        console.log("=".repeat(50));
+      }
+    } catch (error) {
+      console.error(
+        "❌ Summary generation failed:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
+      process.exit(1);
+    }
+  });
+
 // Info command
 program
   .command("info")
@@ -320,5 +470,7 @@ program
     console.log("\nFor more information, visit: https://spec.openapis.org/");
   });
 
-// Parse command line arguments
-program.parse();
+// Only parse command line arguments if this file is being run directly
+if (import.meta.main) {
+  program.parse();
+}
