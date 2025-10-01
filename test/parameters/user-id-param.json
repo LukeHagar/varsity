@@ -1,0 +1,11 @@
+{
+  "name": "id",
+  "in": "path",
+  "description": "User ID",
+  "required": true,
+  "schema": {
+    "type": "integer",
+    "format": "int64",
+    "minimum": 1
+  }
+}

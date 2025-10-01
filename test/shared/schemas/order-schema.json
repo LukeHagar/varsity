@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "required": ["id", "status", "items"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ORD-[0-9]{8}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "processing", "shipped", "delivered", "cancelled"]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "./order-item-schema.json"
+      }
+    },
+    "total": {
+      "$ref": "./price-schema.json"
+    }
+  }
+}

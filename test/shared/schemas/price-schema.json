@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "required": ["amount", "currency"],
+  "properties": {
+    "amount": {
+      "type": "number",
+      "minimum": 0,
+      "multipleOf": 0.01
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    }
+  }
+}

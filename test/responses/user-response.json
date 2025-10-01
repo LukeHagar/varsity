@@ -1,0 +1,15 @@
+{
+  "description": "User details",
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "../schemas/user-schema.json"
+          }
+        }
+      }
+    }
+  }
+}

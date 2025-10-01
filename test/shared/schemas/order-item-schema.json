@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "required": ["productId", "quantity"],
+  "properties": {
+    "productId": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 1
+    },
+    "quantity": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "price": {
+      "$ref": "./price-schema.json"
+    }
+  }
+}

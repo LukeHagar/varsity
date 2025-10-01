@@ -1,0 +1,21 @@
+{
+  "description": "List of products",
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "../schemas/product-schema.json"
+            }
+          },
+          "pagination": {
+            "$ref": "../schemas/pagination-schema.json"
+          }
+        }
+      }
+    }
+  }
+}

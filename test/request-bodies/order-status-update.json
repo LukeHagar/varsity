@@ -1,0 +1,32 @@
+{
+  "description": "Order status update data",
+  "required": true,
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "shipped",
+              "delivered",
+              "cancelled"
+            ]
+          },
+          "trackingNumber": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{10,20}$"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      }
+    }
+  }
+}

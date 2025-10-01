@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "required": ["id", "name", "price"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "price": {
+      "$ref": "./price-schema.json"
+    },
+    "category": {
+      "$ref": "./category-schema.json"
+    }
+  }
+}

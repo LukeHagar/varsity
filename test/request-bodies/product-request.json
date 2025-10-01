@@ -1,0 +1,38 @@
+{
+  "description": "Product creation data",
+  "required": true,
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "required": ["name", "price"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "price": {
+            "$ref": "../schemas/price-schema.json"
+          },
+          "category": {
+            "$ref": "../schemas/category-schema.json"
+          },
+          "inventory": {
+            "$ref": "../schemas/inventory-schema.json"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

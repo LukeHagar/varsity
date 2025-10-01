@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "profileVisibility": {
+      "type": "string",
+      "enum": ["public", "private", "friends"],
+      "default": "private"
+    },
+    "dataSharing": {
+      "type": "boolean",
+      "default": false
+    },
+    "analytics": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

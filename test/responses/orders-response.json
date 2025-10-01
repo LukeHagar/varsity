@@ -1,0 +1,21 @@
+{
+  "description": "List of orders",
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "../schemas/order-schema.json"
+            }
+          },
+          "pagination": {
+            "$ref": "../schemas/pagination-schema.json"
+          }
+        }
+      }
+    }
+  }
+}

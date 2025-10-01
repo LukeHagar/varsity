@@ -1,0 +1,48 @@
+{
+  "get": {
+    "summary": "Get all products",
+    "description": "Retrieve a paginated list of products with optional filtering",
+    "parameters": [
+      {
+        "$ref": "../parameters/page-param.json"
+      },
+      {
+        "$ref": "../parameters/limit-param.json"
+      },
+      {
+        "$ref": "../parameters/category-filter-param.json"
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "List of products",
+        "$ref": "../responses/products-response.json"
+      },
+      "400": {
+        "description": "Bad request",
+        "$ref": "../responses/error-response.json"
+      }
+    }
+  },
+  "post": {
+    "summary": "Create a new product",
+    "description": "Add a new product to the catalog",
+    "requestBody": {
+      "$ref": "../request-bodies/product-request.json"
+    },
+    "responses": {
+      "201": {
+        "description": "Product created successfully",
+        "$ref": "../responses/product-created-response.json"
+      },
+      "400": {
+        "description": "Bad request",
+        "$ref": "../responses/error-response.json"
+      },
+      "401": {
+        "description": "Unauthorized",
+        "$ref": "../responses/unauthorized-response.json"
+      }
+    }
+  }
+}

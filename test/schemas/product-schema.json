@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "required": ["id", "name", "price"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "price": {
+      "$ref": "./price-schema.json"
+    },
+    "category": {
+      "$ref": "./category-schema.json"
+    },
+    "inventory": {
+      "$ref": "./inventory-schema.json"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

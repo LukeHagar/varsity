@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Edge Cases API",
+    "version": "1.0.0",
+    "description": "API testing various edge cases for $ref resolution"
+  },
+  "paths": {
+    "/test": {
+      "get": {
+        "summary": "Test endpoint",
+        "responses": {
+          "200": {
+            "$ref": "../../../../shared/responses/test-response.json"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TestSchema": {
+        "$ref": "../../../../shared/schemas/test-schema.json"
+      }
+    }
+  }
+}

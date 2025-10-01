@@ -1,0 +1,41 @@
+{
+  "name": "varsity",
+  "version": "1.0.0",
+  "description": "Comprehensive OpenAPI parsing and validation library",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "varsity": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "dev": "bun run --watch src/cli.ts",
+    "test": "bun test",
+    "build": "bun build index.ts --outdir dist --target bun",
+    "lint": "bun run --bun tsc --noEmit"
+  },
+  "keywords": [
+    "openapi",
+    "swagger",
+    "validation",
+    "parser",
+    "api",
+    "specification"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/node": "^24.6.1",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "commander": "^14.0.1",
+    "oas-types": "^1.0.6"
+  }
+}

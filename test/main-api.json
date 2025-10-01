@@ -1,0 +1,108 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Main API",
+    "version": "1.0.0",
+    "description": "Main API with external references"
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ],
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get all users",
+        "responses": {
+          "200": {
+            "$ref": "./responses/users-response.json"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create user",
+        "requestBody": {
+          "$ref": "./request-bodies/user-request.json"
+        },
+        "responses": {
+          "201": {
+            "$ref": "./responses/user-created-response.json"
+          },
+          "400": {
+            "$ref": "./responses/error-response.json"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "summary": "Get user by ID",
+        "parameters": [
+          {
+            "$ref": "./parameters/user-id-param.json"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "./responses/user-response.json"
+          },
+          "404": {
+            "$ref": "./responses/not-found-response.json"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update user",
+        "parameters": [
+          {
+            "$ref": "./parameters/user-id-param.json"
+          }
+        ],
+        "requestBody": {
+          "$ref": "./request-bodies/user-update-request.json"
+        },
+        "responses": {
+          "200": {
+            "$ref": "./responses/user-response.json"
+          },
+          "400": {
+            "$ref": "./responses/error-response.json"
+          }
+        }
+      }
+    },
+    "/products": {
+      "$ref": "./paths/products-path.json"
+    },
+    "/orders": {
+      "$ref": "./paths/orders-path.json"
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "$ref": "./schemas/user-schema.json"
+      },
+      "Product": {
+        "$ref": "./schemas/product-schema.json"
+      },
+      "Error": {
+        "$ref": "./schemas/error-schema.json"
+      }
+    },
+    "parameters": {
+      "PageParam": {
+        "$ref": "./parameters/page-param.json"
+      },
+      "LimitParam": {
+        "$ref": "./parameters/limit-param.json"
+      }
+    },
+    "responses": {
+      "UnauthorizedResponse": {
+        "$ref": "./responses/unauthorized-response.json"
+      }
+    }
+  }
+}

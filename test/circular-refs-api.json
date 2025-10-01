@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Circular References API",
+    "version": "1.0.0",
+    "description": "API with intentional circular references for testing"
+  },
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "responses": {
+          "200": {
+            "$ref": "./responses/users-response.json"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "$ref": "./schemas/user-schema.json"
+      },
+      "Category": {
+        "$ref": "./schemas/category-schema.json"
+      }
+    }
+  }
+}

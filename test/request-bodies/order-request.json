@@ -1,0 +1,34 @@
+{
+  "description": "Order creation data",
+  "required": true,
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "required": ["items", "shippingAddress"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "../schemas/order-item-schema.json"
+            },
+            "minItems": 1
+          },
+          "shippingAddress": {
+            "$ref": "../schemas/address-schema.json"
+          },
+          "billingAddress": {
+            "$ref": "../schemas/address-schema.json"
+          },
+          "paymentMethod": {
+            "$ref": "../schemas/payment-method-schema.json"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      }
+    }
+  }
+}

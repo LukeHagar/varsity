@@ -1,0 +1,10 @@
+{
+  "name": "orderId",
+  "in": "path",
+  "description": "Order ID",
+  "required": true,
+  "schema": {
+    "type": "string",
+    "pattern": "^ORD-[0-9]{8}$"
+  }
+}

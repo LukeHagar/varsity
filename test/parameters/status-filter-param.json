@@ -1,0 +1,10 @@
+{
+  "name": "status",
+  "in": "query",
+  "description": "Filter orders by status",
+  "required": false,
+  "schema": {
+    "type": "string",
+    "enum": ["pending", "processing", "shipped", "delivered", "cancelled"]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "quantity": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reserved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "available": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warehouse": {
+      "$ref": "./warehouse-schema.json"
+    }
+  }
+}

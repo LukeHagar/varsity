@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "required": ["amount", "currency"],
+  "properties": {
+    "amount": {
+      "type": "number",
+      "minimum": 0,
+      "multipleOf": 0.01
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 4217 currency code"
+    },
+    "discount": {
+      "type": "object",
+      "properties": {
+        "percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "validUntil": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    }
+  }
+}

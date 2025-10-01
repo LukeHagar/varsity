@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "page": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "totalPages": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hasNext": {
+      "type": "boolean"
+    },
+    "hasPrev": {
+      "type": "boolean"
+    }
+  }
+}

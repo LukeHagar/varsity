@@ -1,0 +1,74 @@
+{
+  "get": {
+    "summary": "Get all orders",
+    "description": "Retrieve orders for the authenticated user",
+    "parameters": [
+      {
+        "$ref": "../parameters/page-param.json"
+      },
+      {
+        "$ref": "../parameters/limit-param.json"
+      },
+      {
+        "$ref": "../parameters/status-filter-param.json"
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "List of orders",
+        "$ref": "../responses/orders-response.json"
+      },
+      "401": {
+        "description": "Unauthorized",
+        "$ref": "../responses/unauthorized-response.json"
+      }
+    }
+  },
+  "post": {
+    "summary": "Create a new order",
+    "description": "Place a new order",
+    "requestBody": {
+      "$ref": "../request-bodies/order-request.json"
+    },
+    "responses": {
+      "201": {
+        "description": "Order created successfully",
+        "$ref": "../responses/order-created-response.json"
+      },
+      "400": {
+        "description": "Bad request",
+        "$ref": "../responses/error-response.json"
+      },
+      "401": {
+        "description": "Unauthorized",
+        "$ref": "../responses/unauthorized-response.json"
+      }
+    }
+  },
+  "put": {
+    "summary": "Update order status",
+    "description": "Update the status of an existing order",
+    "parameters": [
+      {
+        "$ref": "../parameters/order-id-param.json"
+      }
+    ],
+    "requestBody": {
+      "$ref": "../request-bodies/order-status-update.json"
+    },
+    "responses": {
+      "200": {
+        "description": "Order updated successfully",
+        "$ref": "../responses/order-response.json"
+      },
+      "400": {
+        "description": "Bad request",
+        "$ref": "../responses/error-response.json"
+      },
+      "404": {
+        "description": "Order not found",
+        "$ref": "../responses/not-found-response.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Backwards References API",
+    "version": "1.0.0",
+    "description": "API with backwards $ref paths for testing"
+  },
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "responses": {
+          "200": {
+            "$ref": "../shared/responses/users-response.json"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "summary": "Get products",
+        "responses": {
+          "200": {
+            "$ref": "../shared/responses/products-response.json"
+          }
+        }
+      }
+    },
+    "/orders": {
+      "get": {
+        "summary": "Get orders",
+        "responses": {
+          "200": {
+            "$ref": "../shared/responses/orders-response.json"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "$ref": "../shared/schemas/user-schema.json"
+      },
+      "Product": {
+        "$ref": "../shared/schemas/product-schema.json"
+      },
+      "Order": {
+        "$ref": "../shared/schemas/order-schema.json"
+      }
+    }
+  }
+}

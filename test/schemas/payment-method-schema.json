@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "required": ["type", "details"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["credit_card", "debit_card", "paypal", "bank_transfer"]
+    },
+    "details": {
+      "type": "object",
+      "properties": {
+        "cardNumber": {
+          "type": "string",
+          "pattern": "^[0-9]{13,19}$"
+        },
+        "expiryMonth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "expiryYear": {
+          "type": "integer",
+          "minimum": 2024
+        },
+        "cvv": {
+          "type": "string",
+          "pattern": "^[0-9]{3,4}$"
+        },
+        "accountId": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

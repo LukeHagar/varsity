@@ -1,0 +1,34 @@
+{
+  "description": "User creation data",
+  "required": true,
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "required": ["name", "email"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150
+          },
+          "address": {
+            "$ref": "../schemas/address-schema.json"
+          },
+          "preferences": {
+            "$ref": "../schemas/user-preferences-schema.json"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "description": "Order details",
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "../schemas/order-schema.json"
+          }
+        }
+      }
+    }
+  }
+}

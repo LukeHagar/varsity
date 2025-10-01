@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "theme": {
+      "type": "string",
+      "enum": ["light", "dark", "auto"],
+      "default": "auto",
+      "description": "User's preferred theme"
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "default": "en",
+      "description": "User's preferred language code"
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "boolean",
+          "default": true
+        },
+        "push": {
+          "type": "boolean",
+          "default": false
+        },
+        "sms": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "privacy": {
+      "$ref": "./privacy-settings-schema.json"
+    }
+  }
+}
