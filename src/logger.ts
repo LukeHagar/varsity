@@ -54,7 +54,7 @@ export class Logger {
 
   constructor(config: Partial<LoggerConfig> = {}) {
     this.config = {
-      level: "INFO",
+      level: "WARN",
       verbose: false,
       showTimestamps: true,
       showProgress: true,

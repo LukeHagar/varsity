@@ -50,6 +50,12 @@ program
     log.setVerbose(options.verbose);
     log.setShowProgress(!options.noProgress);
     log.setUseColors(!options.noColors);
+    if (options.verbose) {
+      log.setLevel("INFO");
+    }
+    if (options.verbose) {
+      log.setLevel("INFO");
+    }
     try {
       const validationOptions: ValidationOptions = {
         strict: options.strict,
@@ -181,6 +187,19 @@ program
                 console.log(
                   `  Warnings: ${summary.validationResults.warnings}`
                 );
+
+                // Suggest recursive validation if references are found but endpoints are 0
+                if (
+                  summary.referenceAnalysis.totalReferences > 0 &&
+                  summary.endpoints === 0
+                ) {
+                  console.log(
+                    "\n💡 Tip: This specification contains references that may not be fully analyzed."
+                  );
+                  console.log(
+                    "   Use --recursive flag to validate all referenced schemas and get complete endpoint counts."
+                  );
+                }
               } catch (error) {
                 // Fallback to basic info if summary generation fails
                 console.log(`Version: ${validationResult.version}`);
@@ -278,6 +297,9 @@ program
     log.setVerbose(options.verbose);
     log.setShowProgress(!options.noProgress);
     log.setUseColors(!options.noColors);
+    if (options.verbose) {
+      log.setLevel("INFO");
+    }
     try {
       const parsed = await parse(source);
 
@@ -413,6 +435,9 @@ program
     log.setVerbose(options.verbose);
     log.setShowProgress(!options.noProgress);
     log.setUseColors(!options.noColors);
+    if (options.verbose) {
+      log.setLevel("INFO");
+    }
 
     try {
       const validationOptions: ValidationOptions = {

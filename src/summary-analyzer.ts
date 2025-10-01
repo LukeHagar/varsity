@@ -139,10 +139,24 @@ export const analyzeSpecification = (
     for (const [path, pathItem] of Object.entries(spec.paths)) {
       if (typeof pathItem === "object" && pathItem !== null) {
         for (const [method, operation] of Object.entries(pathItem)) {
+          // Check if this is a valid HTTP method and has operation properties
           if (
             typeof operation === "object" &&
             operation !== null &&
-            "responses" in operation
+            [
+              "get",
+              "post",
+              "put",
+              "delete",
+              "patch",
+              "head",
+              "options",
+              "trace",
+            ].includes(method.toLowerCase()) &&
+            ("responses" in operation ||
+              "operationId" in operation ||
+              "summary" in operation ||
+              "description" in operation)
           ) {
             endpointCount++;
             methods.add(method.toUpperCase());
