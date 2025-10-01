@@ -46,11 +46,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/luke/varsity.git"
+    "url": "https://github.com/LukeHagar/varsity"
   },
-  "homepage": "https://github.com/luke/varsity#readme",
+  "homepage": "https://github.com/LukeHagar/varsity#readme",
   "bugs": {
-    "url": "https://github.com/luke/varsity/issues"
+    "url": "https://github.com/LukeHagar/varsity/issues"
   },
   "files": [
     "index.ts",
