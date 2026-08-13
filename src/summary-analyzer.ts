@@ -1,6 +1,7 @@
 import type { OpenAPISpec, OpenAPIVersion } from "./types.js";
 import type { OpenAPI2, OpenAPI3, OpenAPI3_1, OpenAPI3_2 } from "oas-types";
 import { log } from "./logger.js";
+import { findReferences } from "./ref-resolver.js";
 
 export interface SpecificationSummary {
   // Basic info
@@ -324,7 +325,7 @@ export const analyzeSpecification = (
 
   // Analyze references (basic count)
   log.validationStep("Analyzing references");
-  const references = findReferencesInSpec(spec);
+  const references = findReferences(spec).map((ref) => ref.value);
   summary.referenceAnalysis.totalReferences = references.length;
   summary.referenceAnalysis.internalReferences = references.filter((ref) =>
     ref.startsWith("#/")
@@ -354,25 +355,6 @@ export const analyzeSpecification = (
   );
 
   return summary;
-};
-
-/**
- * Find all references in a specification
- */
-const findReferencesInSpec = (obj: any, path = ""): string[] => {
-  const refs: string[] = [];
-
-  if (typeof obj === "object" && obj !== null) {
-    for (const [key, value] of Object.entries(obj)) {
-      if (key === "$ref" && typeof value === "string") {
-        refs.push(value);
-      } else if (typeof value === "object") {
-        refs.push(...findReferencesInSpec(value, path));
-      }
-    }
-  }
-
-  return refs;
 };
 
 /**

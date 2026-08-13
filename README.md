@@ -97,6 +97,8 @@ Validation options:
 - `--json`: output stable machine-readable JSON for single or batch validation.
 - `--verbose`: print detailed validation progress.
 
+Reference cycles (for example recursive schemas) are legal: they are reported through reference analysis and the `circularReferences` metadata of recursive validation results, but they do not fail validation. During recursive validation, each `$ref` target is validated against the fragment type implied by its reference site (a target referenced from `responses` is validated as a Response Object, one referenced from a `schema` position as a Schema Object, and so on). Fragments whose expected type cannot be determined from the reference site are skipped with a warning rather than guessed from their shape.
+
 Validation exits with `0` when every input is valid and `1` when any input is invalid or cannot be parsed. JSON payloads and report contents are written to stdout; human diagnostics, warnings, and progress are written to stderr.
 
 ### Reports

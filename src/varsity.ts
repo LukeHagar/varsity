@@ -480,6 +480,7 @@ export {
 } from "./summary-analyzer.js";
 export type {
 	CLIResult,
+	FragmentKind,
 	OpenAPIVersion,
 	ParsedSpec,
 	RecursiveValidationResult,

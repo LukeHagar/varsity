@@ -2,6 +2,7 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { allSchemas } from "oas-types/schemas";
 import type {
+  FragmentKind,
   OpenAPIVersion,
   ValidationError,
   ValidationResult,
@@ -64,81 +65,6 @@ partialSchemas.set("3.2.callback", allSchemas["3.2"].callback);
 partialSchemas.set("3.2.securityscheme", allSchemas["3.2"].securityscheme);
 
 /**
- * Detect the type of partial document based on its structure
- */
-const detectPartialType = (
-  doc: any,
-  version: OpenAPIVersion
-): string | null => {
-  // Check for schema-like structure
-  if (
-    doc.type ||
-    doc.properties ||
-    doc.items ||
-    doc.allOf ||
-    doc.oneOf ||
-    doc.anyOf
-  ) {
-    return "schema";
-  }
-
-  // Check for parameter-like structure
-  if (doc.name && (doc.in || doc.parameter)) {
-    return "parameter";
-  }
-
-  // Check for response-like structure
-  if (doc.description && (doc.content || doc.schema || doc.headers)) {
-    return "response";
-  }
-
-  // Check for path item-like structure
-  if (
-    doc.get ||
-    doc.post ||
-    doc.put ||
-    doc.delete ||
-    doc.patch ||
-    doc.head ||
-    doc.options
-  ) {
-    return "pathitem";
-  }
-
-  // Check for request body-like structure
-  if (doc.content && !doc.description) {
-    return "requestbody";
-  }
-
-  // Check for header-like structure
-  if (doc.schema && !doc.name) {
-    return "header";
-  }
-
-  // Check for example-like structure
-  if (doc.summary || doc.description || doc.value !== undefined) {
-    return "example";
-  }
-
-  // Check for link-like structure
-  if (doc.operationRef || doc.operationId) {
-    return "link";
-  }
-
-  // Check for callback-like structure
-  if (doc.expression && typeof doc.expression === "string") {
-    return "callback";
-  }
-
-  // Check for security scheme-like structure
-  if (doc.type && (doc.flows || doc.openIdConnectUrl || doc.scheme)) {
-    return "securityscheme";
-  }
-
-  return null;
-};
-
-/**
  * Normalize a patch-versioned OpenAPI version (e.g. `3.0.3`) into the base
  * version used to key partial schemas (`3.0`, `3.1`, `3.2`).
  */
@@ -150,76 +76,88 @@ const normalizePartialVersion = (version: OpenAPIVersion): string => {
 };
 
 /**
- * Validate a partial OpenAPI document
+ * Validate a partial OpenAPI document (a `$ref` target fragment).
+ *
+ * The expected fragment kind comes from the reference site (where the
+ * `$ref` appears), never from the fragment's shape: shape-guessing
+ * misclassifies legal fragments such as the empty OpenAPI 3.1 schema `{}`.
+ * When the reference site does not determine a kind, the fragment is
+ * skipped with a warning instead of being guessed.
  */
 export const validatePartialDocument = (
   document: any,
   version: OpenAPIVersion,
-  documentPath?: string
+  documentPath?: string,
+  expectedKind?: FragmentKind | null
 ): ValidationResult => {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
+  const family = normalizePartialVersion(version);
 
+  const finish = (valid: boolean): ValidationResult => {
+    if (documentPath) {
+      for (const error of errors) error.path = `${documentPath}${error.path}`;
+      for (const warning of warnings)
+        warning.path = `${documentPath}${warning.path}`;
+    }
+    return { valid, errors, warnings, spec: document, version };
+  };
+
+  // A bare `{ "$ref": ... }` wrapper is valid; its target is validated
+  // separately by the recursive walk.
   if (
     document &&
     typeof document === "object" &&
     typeof document.$ref === "string" &&
     Object.keys(document).length === 1
   ) {
-    return {
-      valid: true,
-      errors,
-      warnings,
-      spec: document,
-      version,
-    };
+    return finish(true);
   }
 
-  // Detect the type of partial document
-  const partialType = detectPartialType(document, version);
-
-  if (!partialType) {
+  // Boolean JSON Schemas (`true` / `false`) are legal schema fragments in
+  // OpenAPI 3.1+ (JSON Schema 2020-12).
+  if (typeof document === "boolean") {
+    if (
+      (expectedKind === "schema" || expectedKind == null) &&
+      (family === "3.1" || family === "3.2")
+    ) {
+      return finish(true);
+    }
     errors.push({
       path: "/",
-      message:
-        "Unable to determine document type. This doesn't appear to be a valid OpenAPI partial document.",
+      message: `Boolean fragment is not a valid ${
+        expectedKind ?? "fragment"
+      } in OpenAPI ${version}`,
     });
-
-    return {
-      valid: false,
-      errors,
-      warnings,
-      spec: document,
-      version,
-    };
+    return finish(false);
   }
 
-  // Get the appropriate schema for this partial document type. Partial
-  // schemas are keyed by the base version (3.0/3.1/3.2), so normalize first.
-  const schemaKey = `${normalizePartialVersion(version)}.${partialType}`;
+  if (expectedKind === undefined || expectedKind === null) {
+    warnings.push({
+      path: "/",
+      message:
+        "Could not determine the expected fragment type from the reference site; fragment was not validated",
+    });
+    return finish(true);
+  }
+
+  // Partial schemas are keyed by the base version (2.0/3.0/3.1/3.2).
+  const schemaKey = `${family}.${expectedKind}`;
   const schema = partialSchemas.get(schemaKey);
 
   if (!schema) {
-    errors.push({
+    warnings.push({
       path: "/",
-      message: `No validation schema available for ${partialType} in OpenAPI ${version}`,
+      message: `No validation schema available for ${expectedKind} fragments in OpenAPI ${version}; fragment was not validated`,
     });
-
-    return {
-      valid: false,
-      errors,
-      warnings,
-      spec: document,
-      version,
-    };
+    return finish(true);
   }
 
-  // Validate against the schema
   const validate = partialAjv.compile(schema);
   const valid = validate(document);
 
   if (!valid && validate.errors) {
-    for (const error of validate.errors) {
+    for (const error of filterReferenceNoise(validate.errors)) {
       const validationError: ValidationError = {
         path: error.instancePath || error.schemaPath || "/",
         message: error.message || "Validation error",
@@ -235,21 +173,62 @@ export const validatePartialDocument = (
     }
   }
 
-  // Add document path information to errors if available
-  if (documentPath) {
-    errors.forEach((error) => {
-      error.path = `${documentPath}${error.path}`;
-    });
-    warnings.forEach((warning) => {
-      warning.path = `${documentPath}${warning.path}`;
-    });
-  }
+  return finish(errors.length === 0);
+};
 
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
-    spec: document,
-    version,
-  };
+/** True for a bare Reference Object wrapper: `{ "$ref": "..." }`. */
+const isRefOnlyObject = (value: unknown): boolean =>
+  !!value &&
+  typeof value === "object" &&
+  typeof (value as { $ref?: unknown }).$ref === "string" &&
+  Object.keys(value as object).length === 1;
+
+interface AjvErrorLike {
+  keyword: string;
+  instancePath: string;
+  schemaPath: string;
+  message?: string;
+  data?: unknown;
+  params?: Record<string, unknown>;
+}
+
+/**
+ * Drop AJV errors that are artifacts of *unresolved* nested Reference
+ * Objects rather than genuine shape problems.
+ *
+ * OpenAPI allows `{ "$ref": ... }` in most object positions (responses,
+ * parameters, headers, ...), but the partial schemas from `oas-types`
+ * describe the resolved form and reject bare reference wrappers. Every
+ * nested reference target is resolved and validated separately by the
+ * recursive walk, so errors *about the wrapper itself* are noise:
+ *
+ *  1. errors whose offending data is exactly `{ "$ref": ... }`;
+ *  2. `required: $ref` errors from the failed Reference branch of an
+ *     anyOf/oneOf when the data is a genuine inline object;
+ *  3. anyOf/oneOf aggregate errors left with no supporting error beneath
+ *     them once 1–2 are removed.
+ */
+const filterReferenceNoise = (rawErrors: AjvErrorLike[]): AjvErrorLike[] => {
+  const substantive = rawErrors.filter(
+    (error) =>
+      !isRefOnlyObject(error.data) &&
+      !(
+        error.keyword === "required" &&
+        error.params?.missingProperty === "$ref"
+      ),
+  );
+
+  const isAggregate = (error: AjvErrorLike): boolean =>
+    error.keyword === "anyOf" || error.keyword === "oneOf";
+
+  return substantive.filter(
+    (error) =>
+      !isAggregate(error) ||
+      substantive.some(
+        (other) =>
+          other !== error &&
+          !isAggregate(other) &&
+          other.instancePath.startsWith(error.instancePath),
+      ),
+  );
 };

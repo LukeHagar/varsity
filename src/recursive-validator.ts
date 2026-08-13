@@ -52,23 +52,22 @@ export const validateRecursively = async (
     if (!ref) continue;
 
     if (ref.isCircular) {
-      log.info(`🔄 Circular reference: ${ref.path}`);
+      // A reference cycle (e.g. a recursive schema) is legal graph
+      // topology. It is surfaced through `circularReferences`; it is
+      // never a validation failure.
+      log.info(`🔄 Circular reference (legal): ${ref.path}`);
       partialValidations.push({
         path: ref.path,
         result: {
-          valid: false,
-          errors: [
-            {
-              path: "/",
-              message: "Circular reference detected",
-            },
-          ],
+          valid: true,
+          errors: [],
           warnings: [],
           spec: {} as OpenAPISpec,
-          version: ref.version || "3.0",
+          version: ref.version || rootParsed.version,
         },
         isCircular: true,
       });
+      validDocuments++;
       continue;
     }
 
@@ -79,11 +78,13 @@ export const validateRecursively = async (
     // Determine the version for this partial document
     const version = ref.version || rootParsed.version;
 
-    // Validate the partial document
+    // Validate the partial document against the kind implied by its
+    // reference site (never guessed from the fragment's shape).
     const partialResult = validatePartialDocument(
       ref.content,
       version,
-      ref.path
+      ref.path,
+      ref.expectedKind ?? null
     );
 
     partialValidations.push({

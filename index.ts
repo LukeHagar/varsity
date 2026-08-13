@@ -52,6 +52,7 @@ export type {
   ReportOptions,
   VarsityConfig,
   OpenAPIVersion,
+  FragmentKind,
   CLIResult,
   RecursiveValidationResult,
   DocumentInput,
