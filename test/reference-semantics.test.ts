@@ -60,6 +60,13 @@ describe("expectedFragmentKind (reference-site kinds)", () => {
     expect(
       expectedFragmentKind(["components", "schemas", "X", "properties", "headers"]),
     ).toBe("schema");
+    expect(
+      expectedFragmentKind(["components", "schemas", "X", "properties", "requestBody"]),
+    ).toBe("schema");
+    // A header map entry named "requestBody" is still a header.
+    expect(
+      expectedFragmentKind(["components", "responses", "Err", "headers", "requestBody"]),
+    ).toBe("header");
   });
 
   test("returns null instead of guessing when the site is not determinable", () => {
@@ -284,6 +291,18 @@ describe("fragment kinds come from the reference site", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("fragments with undeterminable reference sites", () => {
+  test("a boolean fragment at an unknown site is skipped, never shape-judged", async () => {
+    const { validatePartialDocument } = await import("../src/varsity.js");
+    // A boolean referenced from a vendor extension in a 3.0 document: the
+    // site does not say a schema was expected, so this must not be an error.
+    const result = validatePartialDocument(true, "3.0.3", "x-custom", null);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings.length).toBeGreaterThan(0);
   });
 });
 

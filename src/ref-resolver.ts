@@ -215,15 +215,20 @@ export const expectedFragmentKind = (
 
   if (last !== undefined) {
     if (SCHEMA_VALUE_KEYS.has(last)) return "schema";
-    if (last === "requestBody") return "requestbody";
   }
 
+  // Parent-based rules run before the bare `requestBody` key check so that
+  // a schema property or map entry literally named "requestBody" (e.g.
+  // `properties.requestBody`, `headers.requestBody`) keeps its parent's
+  // kind instead of being misclassified as a Request Body Object.
   if (last !== undefined && parent !== undefined) {
     if (SCHEMA_MAP_KEYS.has(parent)) return "schema";
     if (/^\d+$/.test(last) && SCHEMA_LIST_KEYS.has(parent)) return "schema";
     const containerKind = KIND_BY_CONTAINER_KEY[parent];
     if (containerKind) return containerKind;
   }
+
+  if (last === "requestBody") return "requestbody";
 
   return null;
 };

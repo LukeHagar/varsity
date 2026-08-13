@@ -12,19 +12,24 @@ Each item lists the defect, the fix, the tests that prove it, and the acceptance
 
 ### A1. One reference engine (fixes false circular errors, duplicate walkers)
 
+**Status: partially shipped in PR #1** — cycles-as-metadata, one shared walker (`findReferences`/`resolveJsonPointer`), and RFC 6901 escape handling landed. Remaining: canonical source URIs, iterative traversal, source ranges, fetch policy/caching.
+
 **Defect.** Three independent `$ref` walkers exist (`src/validator.ts`, `src/ref-resolver.ts`, `src/summary-analyzer.ts`), and `validateRecursively` converts every cycle reported by `resolveAllReferences` into a validation error. A legal recursive schema (`Node` → `children` → `Node`) fails validation. Reproduced on 2026-08-13.
 
 **Fix.**
 - Build a single `DocumentGraph` module: nodes are `(canonical source URI, JSON pointer)`; edges are references. Built once per load, used by validation, analysis, summary, and partition.
 - Cycle handling: a cycle is recorded as graph metadata (`cycles: RefCycle[]`), never as a diagnostic. Only *unresolvable* references produce diagnostics.
 - RFC 6901 pointer resolution in exactly one place (the existing `resolveJsonPointer` is closest to correct; the validator's `resolveReference` mishandles `~0`/`~1` and must be deleted).
-- Traversal is iterative with an explicit stack (no recursion-depth crashes on adversarial documents); `maxRefDepth` becomes a guard against runaway *external* fan-out only.
+- Traversal is iterative with an explicit stack (no recursion-depth crashes on adversarial documents).
+- **Depth contract:** v2 `maxDepth` replaces v1 `maxRefDepth` and bounds *external document fan-out only* (how many files/URLs may be loaded transitively). In-document traversal needs no depth bound because the graph is cycle-safe.
 
 **Tests.** Legal recursion (self, mutual, cross-file), escaped pointers (`~0`, `~1`, URL-encoded), duplicate targets reached by multiple paths, external fragments (`file.yaml#/components/schemas/X`), URL-relative refs, missing targets, depth bombs.
 
 **Gate.** Recursive `Node` schema validates clean. Zero cycle-related errors across the conformance corpus.
 
 ### A2. Context-aware fragment validation (fixes shape guessing)
+
+**Status: shipped in PR #1** — `expectedFragmentKind` derives kinds from reference sites; `detectPartialType` is deleted; unknown sites skip with a warning instead of guessing; reference-wrapper AJV noise is filtered.
 
 **Defect.** `validatePartialDocument` guesses what a referenced fragment is from its fields. An empty `{}` — a legal OpenAPI 3.1 Schema Object — is rejected as "unable to determine document type". Reproduced on 2026-08-13.
 
@@ -42,7 +47,23 @@ Each item lists the defect, the fix, the tests that prove it, and the acceptance
 **Defect.** `ValidationError` is used for both errors and warnings, has `data?: any`, no code, no severity, no source location. Results embed the whole spec (`ValidationResult.spec`).
 
 **Fix.**
-- Introduce `Diagnostic { code, severity, message, source, pointer, range?, refTrace?, fingerprint }` as the only finding type. Severity: `error | warning | info`.
+- Introduce the canonical `Diagnostic` as the only finding type (same contract as `BEST_IN_CLASS_STRATEGY.md`):
+
+  ```ts
+  interface Diagnostic {
+    code: string;
+    severity: "error" | "warning" | "info" | "hint";
+    message: string;
+    source: string;
+    range: SourceRange;
+    pointer: string;
+    rule?: string;
+    referenceTrace?: ReferenceStep[];
+    fingerprint: string;
+    helpUrl?: string;
+    fixes?: Fix[];
+  }
+  ```
 - Preserve YAML/JSON source ranges at load time (js-yaml exposes marks; JSON needs a location-aware parse) so `range` is real, not synthesized.
 - `CheckResult` carries `diagnostics: Diagnostic[]` plus a computed `ok: boolean`; it does not embed the document (expose `document` separately from `load`).
 
@@ -166,7 +187,7 @@ import {
   load,      // load(source, opts?) → Document          (I/O + parse + graph)
   check,     // check(source|Document, opts?) → CheckResult
   checkAll,  // checkAll(sources, opts?) → CheckRun      (never a union)
-  inspect,   // inspect(source|Document) → Inspection    (stats + refs + cycles)
+  inspect,   // inspect(source|Document) → Inspection    (stats + refs + circularReferences)
   partition, // partition(source|Document, opts?) → PartitionPlan
   render,    // render(CheckResult|Inspection, {format}) → string  (pure)
   createVarsity, // frozen, per-instance config; no globals
@@ -187,12 +208,16 @@ interface CheckOptions {
   refs?: "none" | "internal" | "follow";   // was: validateReferences / recursive
   examples?: boolean;                        // was: validateExamples
   profile?: "spec" | "recommended" | "strict"; // was: strict (ad-hoc extra checks)
-  maxDepth?: number;                         // one default, everywhere: 25
+  maxDepth?: number;                         // replaces maxRefDepth; bounds external
+                                             // document fan-out only (in-document
+                                             // traversal is cycle-safe); default 25
   severityOverrides?: Record<string, Severity>; // replaces strictSchema's hidden downgrade logic
 }
 ```
 
 `silent` disappears: the engine emits nothing unless an `onEvent` sink is provided.
+
+Naming note: `circularReferences` remains the public name for cycle metadata on `Inspection` and check results (continuity with v1); `cycles` is internal `DocumentGraph` vocabulary only.
 
 ---
 
@@ -223,7 +248,7 @@ interface CheckOptions {
 
 ### Target command tree
 
-```
+```text
 varsity check <sources...>   [--refs none|internal|follow] [--examples]
                              [--profile spec|recommended|strict]
                              [--format pretty|json|yaml|md|html|sarif|junit]
@@ -268,4 +293,4 @@ Migration: build the v2 tree in Stricli from scratch (do not port command-by-com
 | 9 | README/API docs rewritten; tooling review re-verified or deleted (A8) | Every documented example runs in CI |
 | 10 | Release v2.0.0 with migration guide (v1→v2 name table from Part B) | Trusted-publishing pipeline green |
 
-Steps 2–4 are sequential; 5–8 can proceed in parallel once 2–4 land.
+Dependencies: steps 2–4 are sequential. Steps 5 and 6 both build on the diagnostic contract from step 3 and can proceed in parallel with each other; step 7 depends on steps 5 and 6; step 8 is independent and can land at any time; steps 9–10 close out the release.

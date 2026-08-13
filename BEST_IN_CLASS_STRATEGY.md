@@ -2,6 +2,9 @@
 
 Research date: 2026-08-13
 
+> [!NOTE]
+> The "Observed baseline" section records the codebase **as reviewed on 2026-08-13, before remediation began**. Trust gaps 1–3 were fixed on `fix/reference-semantics` (PR #1). Execution status and the operative v2 design live in `V2_REMEDIATION_AND_DX_PLAN.md`, which is canonical where the two documents differ.
+
 ## Executive assessment
 
 Varsity is a promising OpenAPI utility, not yet a trustworthy validator or a credible replacement for Spectral, Vacuum, Scalar, or Redocly.
@@ -32,6 +35,8 @@ If Varsity becomes the most correct and explainable OpenAPI compiler, it can sup
 - The clean verification pipeline passes: TypeScript checking, 36 tests, build, and `npm pack --dry-run`.
 
 ### Release-blocking trust gaps
+
+Gaps 1–3 below are **fixed** in PR #1 (`fix/reference-semantics`); the rest remain open.
 
 1. **Legal recursive schemas fail recursive validation.** `resolveAllReferences` identifies active cycles, then `validateRecursively` turns every circular reference into an error. Recursive schemas are normal and legal; a cycle is graph topology, not invalidity.
 2. **Legal OpenAPI 3.1 Schema Objects fail recursive validation.** `validatePartialDocument` guesses an object type from fields such as `type`, `description`, and `content`. An empty Schema Object `{}` is legal in OpenAPI 3.1 but is rejected because it cannot be guessed.
@@ -84,20 +89,17 @@ Do not immediately build an API docs renderer, hosted registry, SDK generator, m
 
 ## Target module design
 
-The external interface should become smaller while the implementation becomes much deeper:
+The external interface should become smaller while the implementation becomes much deeper. The concrete v2 surface is defined in `V2_REMEDIATION_AND_DX_PLAN.md` (Part B); in outline:
 
 ```ts
-const varsity = createVarsity({
-  configFile: "varsity.yaml",
-});
+import { load, check, inspect, partition, render, createVarsity } from "varsity";
 
-const project = await varsity.load("openapi.yaml");
+const doc = await load("openapi.yaml");
+const result = await check(doc, { refs: "follow", profile: "recommended" });
+const plan = await partition(doc, { by: "tag" });
 
-const result = await project.check();
-const transformed = await project.transform([
-  { use: "partition", by: "tag" },
-]);
-const changes = await project.compare("origin/main:openapi.yaml");
+// Phase 2 adds transform(doc, [...]) and Phase 3 adds
+// compare(doc, "origin/main:openapi.yaml") on the same Document.
 ```
 
 Four deep modules are enough:

@@ -114,24 +114,10 @@ export const validatePartialDocument = (
     return finish(true);
   }
 
-  // Boolean JSON Schemas (`true` / `false`) are legal schema fragments in
-  // OpenAPI 3.1+ (JSON Schema 2020-12).
-  if (typeof document === "boolean") {
-    if (
-      (expectedKind === "schema" || expectedKind == null) &&
-      (family === "3.1" || family === "3.2")
-    ) {
-      return finish(true);
-    }
-    errors.push({
-      path: "/",
-      message: `Boolean fragment is not a valid ${
-        expectedKind ?? "fragment"
-      } in OpenAPI ${version}`,
-    });
-    return finish(false);
-  }
-
+  // When the reference site does not determine an expected kind, skip with
+  // a warning — never guess. This must run before any shape-specific branch
+  // (including the boolean one below) so unknown-site fragments are never
+  // judged by their shape.
   if (expectedKind === undefined || expectedKind === null) {
     warnings.push({
       path: "/",
@@ -139,6 +125,19 @@ export const validatePartialDocument = (
         "Could not determine the expected fragment type from the reference site; fragment was not validated",
     });
     return finish(true);
+  }
+
+  // Boolean JSON Schemas (`true` / `false`) are legal schema fragments in
+  // OpenAPI 3.1+ (JSON Schema 2020-12).
+  if (typeof document === "boolean") {
+    if (expectedKind === "schema" && (family === "3.1" || family === "3.2")) {
+      return finish(true);
+    }
+    errors.push({
+      path: "/",
+      message: `Boolean fragment is not a valid ${expectedKind} in OpenAPI ${version}`,
+    });
+    return finish(false);
   }
 
   // Partial schemas are keyed by the base version (2.0/3.0/3.1/3.2).
