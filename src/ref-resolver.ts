@@ -311,6 +311,10 @@ export const resolveAllReferences = async (
         ref.expectedKind ?? (ref.segments.length === 0 ? inheritedKind : null);
 
       const key = absoluteRefKey(ref.value, currentBasePath);
+      // Resolution can be shared by URI, but validation semantics also depend
+      // on the reference site. The same target used as both a Schema and a
+      // Response must be validated once for each expected kind.
+      const seenKey = `${key}\0${expectedKind ?? "<unknown>"}`;
       if (active.has(key)) {
         circularRefs.push(ref.value);
         resolvedRefs.push({
@@ -324,8 +328,8 @@ export const resolveAllReferences = async (
         continue;
       }
 
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seen.has(seenKey)) continue;
+      seen.add(seenKey);
       active.add(key);
 
       try {

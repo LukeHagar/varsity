@@ -292,6 +292,54 @@ describe("fragment kinds come from the reference site", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("validates one target under every kind implied by its reference sites", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "varsity-multi-kind-target-"));
+    try {
+      writeFileSync(
+        join(dir, "openapi.json"),
+        JSON.stringify({
+          openapi: "3.0.3",
+          info: { title: "Multi-kind target", version: "1" },
+          paths: {
+            "/things": {
+              get: {
+                responses: {
+                  "200": {
+                    description: "ok",
+                    content: {
+                      "application/json": {
+                        // This first use correctly treats the target as a Schema.
+                        schema: { $ref: "./shared.json" },
+                      },
+                    },
+                  },
+                  // The same URI is then used as a Response. URI-only
+                  // deduplication used to suppress this second validation.
+                  "400": { $ref: "./shared.json" },
+                },
+              },
+            },
+          },
+        }),
+      );
+      writeFileSync(
+        join(dir, "shared.json"),
+        JSON.stringify({ type: "object" }),
+      );
+
+      const result = await validateWithReferences(join(dir, "openapi.json"), {
+        silent: true,
+      });
+
+      expect(result.valid).toBe(false);
+      expect(
+        result.errors.some((e) => e.message.includes("description")),
+      ).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("fragments with undeterminable reference sites", () => {
