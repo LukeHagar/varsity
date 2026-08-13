@@ -12,6 +12,7 @@ import type {
 import { allSchemas } from "oas-types/schemas";
 import type { OpenAPI3_1, OpenAPI3_2, OpenAPI3, OpenAPI2 } from "oas-types";
 import { log } from "./logger.js";
+import { findReferences, resolveJsonPointer } from "./ref-resolver.js";
 
 // Initialize AJV instance
 const createAjvInstance = (customSchemas?: Record<string, JSONSchemaType<any>>): Ajv => {
@@ -52,81 +53,6 @@ const normalizeVersion = (version: OpenAPIVersion): OpenAPIVersion => {
     return "3.2";
   }
   return version;
-};
-
-/**
- * Find all $ref references in the specification
- */
-const findReferences = (
-  obj: OpenAPISpec,
-  path = ""
-): Array<{ path: string; value: string }> => {
-  log.validationStep("Finding references in specification");
-
-  const refs: Array<{ path: string; value: string }> = [];
-
-  if (typeof obj === "object" && obj !== null) {
-    for (const [key, value] of Object.entries(obj)) {
-      const currentPath = path ? `${path}.${key}` : key;
-
-      if (key === "$ref" && typeof value === "string") {
-        log.referenceStep("Found reference", value, `at ${currentPath}`);
-        refs.push({ path: currentPath, value });
-      } else if (typeof value === "object") {
-        refs.push(...findReferences(value, currentPath));
-      }
-    }
-  }
-
-  log.validationStep(
-    "Reference search completed",
-    `Found ${refs.length} references`
-  );
-  return refs;
-};
-
-/**
- * Resolve a reference to check if it's valid
- */
-const resolveReference = (
-  spec: OpenAPISpec,
-  ref: { path: string; value: string }
-): boolean => {
-  log.referenceStep("Resolving reference", ref.value, `from ${ref.path}`);
-
-  // Simple reference resolution - in a real implementation, this would be more comprehensive
-  if (ref.value.startsWith("#/")) {
-    const path = ref.value.substring(2).split("/");
-    let current = spec;
-
-    for (const segment of path) {
-      if (current && typeof current === "object" && segment in current) {
-        current = (current as any)[segment];
-        log.referenceStep(
-          "Traversing path segment",
-          segment,
-          `current type: ${typeof current}`
-        );
-      } else {
-        log.referenceStep(
-          "Reference resolution failed",
-          `segment '${segment}' not found`
-        );
-        return false;
-      }
-    }
-
-    const isValid = current !== undefined;
-    log.referenceStep(
-      "Reference resolution completed",
-      ref.value,
-      `Valid: ${isValid}`
-    );
-    return isValid;
-  }
-
-  log.referenceStep("External reference not supported", ref.value);
-  return false; // External references not supported in this simple implementation
 };
 
 /**
@@ -369,7 +295,7 @@ const validateReferences = (
       });
       continue;
     }
-    if (!resolveReference(spec, ref)) {
+    if (resolveJsonPointer(spec, ref.value) === undefined) {
       log.referenceStep("Broken reference found", ref.value, `at ${ref.path}`);
       errors.push({
         path: ref.path,

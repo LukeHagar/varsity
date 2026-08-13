@@ -64,6 +64,23 @@ export type OpenAPIVersion =
   | "3.2"
   | "3.2.0";
 
+/**
+ * The kind of OpenAPI object a `$ref` target is expected to be, derived
+ * from the reference site (where the `$ref` appears), never from the
+ * target fragment's shape.
+ */
+export type FragmentKind =
+  | "schema"
+  | "parameter"
+  | "response"
+  | "requestbody"
+  | "header"
+  | "example"
+  | "link"
+  | "callback"
+  | "securityscheme"
+  | "pathitem";
+
 // Union type for all OpenAPI specifications
 export type OpenAPISpec =
   | OpenAPI2.Specification

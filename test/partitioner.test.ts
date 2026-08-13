@@ -194,12 +194,13 @@ describe("partitioner / writePartitionPlan + validation", () => {
 			const validation = validateOpenAPISpec(parsed.spec, parsed.version, {});
 			expect(validation.valid).toBe(true);
 
-			// Recursive validation walks rewritten file refs and partial-
-			// validates each one. We don't assert zero errors here because the
-			// pre-existing partial-validator has a known limitation with
-			// $ref-only Response objects; we only verify the call completes.
+			// Recursive validation walks rewritten file refs and validates each
+			// fragment against the kind implied by its reference site. Emitted
+			// partitions must be fully valid.
 			const recursive = await validateWithReferences(openapiPath);
 			expect(recursive.totalDocuments).toBeGreaterThan(1);
+			expect(recursive.errors).toHaveLength(0);
+			expect(recursive.valid).toBe(true);
 		}
 	});
 

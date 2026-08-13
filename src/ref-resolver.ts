@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { isUrlSource, loadDocument } from "./document.js";
-import type { OpenAPIVersion } from "./types.js";
+import type { FragmentKind, OpenAPIVersion } from "./types.js";
 
 export interface ResolvedReference {
   path: string;
@@ -9,6 +9,8 @@ export interface ResolvedReference {
   isCircular: boolean;
   depth: number;
   source?: string;
+  /** Fragment kind implied by the reference site, when determinable. */
+  expectedKind?: FragmentKind | null;
 }
 
 export interface ReferenceContext {
@@ -150,20 +152,116 @@ export const resolveReference = async (
   }
 };
 
+// ---------------------------------------------------------------------------
+// Reference-site fragment kinds
+// ---------------------------------------------------------------------------
+
+/** Keys whose direct value is a Schema Object. */
+const SCHEMA_VALUE_KEYS = new Set([
+  "schema",
+  "items",
+  "additionalItems",
+  "additionalProperties",
+  "unevaluatedItems",
+  "unevaluatedProperties",
+  "not",
+  "contains",
+  "propertyNames",
+  "if",
+  "then",
+  "else",
+]);
+
+/** Map containers whose entries are Schema Objects. */
+const SCHEMA_MAP_KEYS = new Set([
+  "properties",
+  "patternProperties",
+  "dependentSchemas",
+  "definitions",
+  "$defs",
+  "schemas",
+]);
+
+/** Array containers whose items are Schema Objects. */
+const SCHEMA_LIST_KEYS = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
+
+/** Map containers whose entries have a fixed, well-known object kind. */
+const KIND_BY_CONTAINER_KEY: Record<string, FragmentKind> = {
+  responses: "response",
+  parameters: "parameter",
+  requestBodies: "requestbody",
+  headers: "header",
+  examples: "example",
+  links: "link",
+  callbacks: "callback",
+  securitySchemes: "securityscheme",
+  securityDefinitions: "securityscheme",
+  paths: "pathitem",
+  webhooks: "pathitem",
+  pathItems: "pathitem",
+};
+
+/**
+ * Derive the expected kind of a `$ref` target from the object-path segments
+ * of the object holding the `$ref` (the reference site). Returns null when
+ * the site does not determine a kind (for example, inside a vendor
+ * extension); callers must not fall back to shape-guessing.
+ */
+export const expectedFragmentKind = (
+  segments: string[],
+): FragmentKind | null => {
+  const last = segments[segments.length - 1];
+  const parent = segments[segments.length - 2];
+
+  if (last !== undefined) {
+    if (SCHEMA_VALUE_KEYS.has(last)) return "schema";
+  }
+
+  // Parent-based rules run before the bare `requestBody` key check so that
+  // a schema property or map entry literally named "requestBody" (e.g.
+  // `properties.requestBody`, `headers.requestBody`) keeps its parent's
+  // kind instead of being misclassified as a Request Body Object.
+  if (last !== undefined && parent !== undefined) {
+    if (SCHEMA_MAP_KEYS.has(parent)) return "schema";
+    if (/^\d+$/.test(last) && SCHEMA_LIST_KEYS.has(parent)) return "schema";
+    const containerKind = KIND_BY_CONTAINER_KEY[parent];
+    if (containerKind) return containerKind;
+  }
+
+  if (last === "requestBody") return "requestbody";
+
+  return null;
+};
+
+export interface FoundReference {
+  path: string;
+  value: string;
+  /** Object-path segments of the object that holds the `$ref`. */
+  segments: string[];
+  /** Fragment kind implied by the reference site, when determinable. */
+  expectedKind: FragmentKind | null;
+}
+
 export const findReferences = (
   obj: any,
   path = "",
-): Array<{ path: string; value: string }> => {
-  const refs: Array<{ path: string; value: string }> = [];
+  segments: string[] = [],
+): FoundReference[] => {
+  const refs: FoundReference[] = [];
 
   if (typeof obj === "object" && obj !== null) {
     for (const [key, value] of Object.entries(obj)) {
       const currentPath = path ? `${path}.${key}` : key;
 
       if (key === "$ref" && typeof value === "string") {
-        refs.push({ path: currentPath, value });
+        refs.push({
+          path: currentPath,
+          value,
+          segments,
+          expectedKind: expectedFragmentKind(segments),
+        });
       } else if (typeof value === "object") {
-        refs.push(...findReferences(value, currentPath));
+        refs.push(...findReferences(value, currentPath, [...segments, key]));
       }
     }
   }
@@ -192,6 +290,7 @@ export const resolveAllReferences = async (
     currentBasePath: string,
     currentRootDocument: any,
     depth: number,
+    inheritedKind: FragmentKind | null = null,
   ): Promise<void> => {
     if (depth >= maxDepth) {
       unresolvedRefs.push({
@@ -205,7 +304,17 @@ export const resolveAllReferences = async (
 
     const refs = findReferences(currentDocument);
     for (const ref of refs) {
+      // A `$ref` at the root of a fragment (a bare `{ "$ref": ... }`
+      // wrapper) carries no site context of its own; it inherits the kind
+      // expected of the fragment it stands in for.
+      const expectedKind =
+        ref.expectedKind ?? (ref.segments.length === 0 ? inheritedKind : null);
+
       const key = absoluteRefKey(ref.value, currentBasePath);
+      // Resolution can be shared by URI, but validation semantics also depend
+      // on the reference site. The same target used as both a Schema and a
+      // Response must be validated once for each expected kind.
+      const seenKey = `${key}\0${expectedKind ?? "<unknown>"}`;
       if (active.has(key)) {
         circularRefs.push(ref.value);
         resolvedRefs.push({
@@ -214,12 +323,13 @@ export const resolveAllReferences = async (
           isCircular: true,
           depth,
           source: key,
+          expectedKind,
         });
         continue;
       }
 
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seen.has(seenKey)) continue;
+      seen.add(seenKey);
       active.add(key);
 
       try {
@@ -246,10 +356,17 @@ export const resolveAllReferences = async (
           isCircular: false,
           depth,
           source: resolvedSource,
+          expectedKind,
         });
 
         if (targetDocument && typeof targetDocument === "object") {
-          await walk(targetDocument, resolvedSource, rootDocument, depth + 1);
+          await walk(
+            targetDocument,
+            resolvedSource,
+            rootDocument,
+            depth + 1,
+            expectedKind,
+          );
         }
       } catch (error) {
         unresolvedRefs.push({
@@ -264,7 +381,7 @@ export const resolveAllReferences = async (
     }
   };
 
-  await walk(document, basePath, document, 0);
+  await walk(document, basePath, document, 0, null);
 
   return {
     document,
